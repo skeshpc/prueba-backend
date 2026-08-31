@@ -1,0 +1,42 @@
+{% extends 'academic/base.html' %}
+
+{% block title %}Listado de Estudiantes{% endblock %}
+
+{% block content %}
+<h2>Listado de Estudiantes</h2>
+<table class="table table-striped table-bordered mt-3">
+    <thead class="table-dark">
+        <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Apellido</th>
+        </tr>
+    </thead>
+    <tbody id="students-table-body">
+        <!-- Renderizado dinámico vía Fetch JS -->
+    </tbody>
+</table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        fetch('/api/students/')
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.getElementById('students-table-body');
+                tbody.innerHTML = '';
+                data.forEach(student => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${student.id}</td>
+                            <td>${student.first_name}</td>
+                            <td>${student.last_name}</td>
+                        </tr>
+                    `;
+                });
+            })
+            .catch(error => console.error('Error al cargar estudiantes:', error));
+    });
+</script>
+{% endblock %}

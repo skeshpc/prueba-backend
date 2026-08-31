@@ -1,0 +1,158 @@
+{% extends 'academic/base.html' %}
+
+{% block title %}Gestión de Asignaturas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Listado de Asignaturas</h2>
+    <button class="btn btn-primary" onclick="openCreateModal()">+ Nueva Asignatura</button>
+</div>
+
+<table class="table table-striped table-hover shadow-sm">
+    <thead class="table-dark">
+        <tr>
+            <th>ID</th>
+            <th>Nombre Asignatura</th>
+            <th>Profesor Asignado</th>
+            <th class="text-center">Acciones</th>
+        </tr>
+    </thead>
+    <tbody id="courses-table-body">
+        <!-- Se cargará dinámicamente con JS -->
+    </tbody>
+</table>
+
+<!-- Modal para Crear / Editar -->
+<div class="modal fade" id="courseModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle">Nueva Asignatura</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="courseForm">
+          <input type="hidden" id="courseId">
+          <div class="mb-3">
+            <label for="courseName" class="form-label">Nombre de la Asignatura</label>
+            <input type="text" class="form-control" id="courseName" required>
+          </div>
+          <div class="mb-3">
+            <label for="teacherSelect" class="form-label">Profesor Asignado</label>
+            <select class="form-select" id="teacherSelect" required>
+                <!-- Se cargan los profesores vía API -->
+            </select>
+          </div>
+          <button type="submit" class="btn btn-success w-100">Guardar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let modalInstance = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    modalInstance = new bootstrap.Modal(document.getElementById('courseModal'));
+    loadCourses();
+    loadTeachers();
+
+    document.getElementById('courseForm').addEventListener('submit', handleFormSubmit);
+});
+
+// 1. Obtener y listar asignaturas (GET)
+function loadCourses() {
+    fetch('/api/courses/')
+        .then(res => res.json())
+        .then(data => {
+            const tbody = document.getElementById('courses-table-body');
+            tbody.innerHTML = '';
+            data.forEach(course => {
+                const teacherName = course.teacher_detail 
+                    ? `${course.teacher_detail.first_name} ${course.teacher_detail.last_name}` 
+                    : `Docente #${course.teacher}`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${course.id}</td>
+                        <td>${course.name}</td>
+                        <td>${teacherName}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-warning me-1" onclick="openEditModal(${course.id}, '${course.name}', ${course.teacher})">Editar</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteCourse(${course.id})">Eliminar</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        })
+        .catch(err => console.error('Error al cargar cursos:', err));
+}
+
+// 2. Cargar lista de profesores en el select
+function loadTeachers() {
+    fetch('/api/teachers/')
+        .then(res => res.json())
+        .then(teachers => {
+            const select = document.getElementById('teacherSelect');
+            select.innerHTML = '<option value="">Seleccione un profesor...</option>';
+            teachers.forEach(t => {
+                select.innerHTML += `<option value="${t.id}">${t.first_name} ${t.last_name}</option>`;
+            });
+        });
+}
+
+// 3. Abrir Modal para Crear
+function openCreateModal() {
+    document.getElementById('courseId').value = '';
+    document.getElementById('courseForm').reset();
+    document.getElementById('modalTitle').innerText = 'Nueva Asignatura';
+    modalInstance.show();
+}
+
+// 4. Abrir Modal para Editar
+function openEditModal(id, name, teacherId) {
+    document.getElementById('courseId').value = id;
+    document.getElementById('courseName').value = name;
+    document.getElementById('teacherSelect').value = teacherId;
+    document.getElementById('modalTitle').innerText = 'Editar Asignatura';
+    modalInstance.show();
+}
+
+// 5. Enviar formulario (POST / PUT)
+function handleFormSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('courseId').value;
+    const name = document.getElementById('courseName').value;
+    const teacher = document.getElementById('teacherSelect').value;
+
+    const url = id ? `/api/courses/${id}/` : '/api/courses/';
+    const method = id ? 'PUT' : 'POST';
+
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, teacher })
+    })
+    .then(res => {
+        if (res.ok) {
+            modalInstance.hide();
+            loadCourses();
+        } else {
+            alert('Error al guardar la asignatura');
+        }
+    });
+}
+
+// 6. Eliminar asignatura (DELETE)
+function deleteCourse(id) {
+    if (confirm('¿Estás seguro de eliminar esta asignatura?')) {
+        fetch(`/api/courses/${id}/`, { method: 'DELETE' })
+            .then(res => {
+                if (res.ok) loadCourses();
+                else alert('Error al eliminar');
+            });
+    }
+}
+</script>
+{% endblock %}
